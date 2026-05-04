@@ -24,6 +24,10 @@ static std::string string_buffer;
 lineterminator  \r|\n|\r\n
 blank           [ \t\f]
 id              [a-zA-Z][_0-9a-zA-Z]*
+digit           [0-9]
+nzdigit         [1-9]
+intlit          0|{nzdigit}{digit}*
+badint          0{digit}+
 
  /* Declare two start conditions (sub-automate states) to handle
     strings and comments */
@@ -71,7 +75,9 @@ id              [a-zA-Z][_0-9a-zA-Z]*
 ":="     return yy::tiger_parser::make_ASSIGN(loc);
 
  /* Keywords */
-
+ 
+if       return yy::tiger_parser::make_IF(loc);
+then     return yy::tiger_parser::make_THEN(loc);
 else     return yy::tiger_parser::make_ELSE(loc);
 while    return yy::tiger_parser::make_WHILE(loc);
 for      return yy::tiger_parser::make_FOR(loc);
@@ -83,6 +89,21 @@ end      return yy::tiger_parser::make_END(loc);
 break    return yy::tiger_parser::make_BREAK(loc);
 function return yy::tiger_parser::make_FUNCTION(loc);
 var      return yy::tiger_parser::make_VAR(loc);
+
+ /* Integer literals */
+{badint} {
+  utils::error(loc, "leading zeros are forbidden");
+}
+
+{intlit} {
+  errno = 0;
+  long value = strtol(yytext, nullptr, 10);
+
+  if (errno == ERANGE || value > TIGER_INT_MAX)
+    utils::error(loc, "integer literal out of range");
+
+  return yy::tiger_parser::make_INT(static_cast<int>(value), loc);
+}
 
  /* Identifiers */
 {id}       return yy::tiger_parser::make_ID(Symbol(yytext), loc);
